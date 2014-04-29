@@ -1,0 +1,75 @@
+#include <SPI.h>
+#include <ble.h>
+#include <Servo.h> 
+
+#define DIGITAL_OUT_PIN    2
+#define SERVO_PIN          6
+
+Servo myservo;
+int pos = 0;
+
+
+void setup()
+{
+  //sets up Serial Peripheral Interface -- note to self: http://arduino.cc/en/Reference/SPI
+  SPI.setDataMode(SPI_MODE0);
+  SPI.setBitOrder(LSBFIRST);
+  SPI.setClockDivider(SPI_CLOCK_DIV16);
+  SPI.begin();
+
+  //begins broadcasting ble
+  ble_begin();
+  
+  //enables pin for output
+  pinMode(DIGITAL_OUT_PIN, OUTPUT);
+  
+  //attach servo to pin
+  myservo.attach(SERVO_PIN);
+  
+  //set servo to position 150
+  //allows us to decrement down to rotate anti clockwise.
+  myservo.write(150);
+
+}
+
+void loop()
+{
+  // If data is ready read bytes sent 
+  while(ble_available())
+  {    
+    // read command data
+    byte data0 = ble_read();
+    byte data1 = ble_read();
+    byte data2 = ble_read();
+    
+    //handle the light --testing purpose only--
+    if (data0 == 0x01)  // Command is to control digital out pin
+    {
+      if (data1 == 0x01){
+        digitalWrite(DIGITAL_OUT_PIN, HIGH);
+        delay(1000);
+        digitalWrite(DIGITAL_OUT_PIN, LOW);
+      }
+      else
+        digitalWrite(DIGITAL_OUT_PIN, LOW);
+    }
+    //handles servo
+    else if (data0 == 0x03)  // Command is to control Servo pin
+    {
+    myservo.write(110);
+    delay(1000);
+    myservo.write(150);
+    }
+  }
+  
+  //if disconnected from the central turn light off
+  if (!ble_connected())
+  {
+    digitalWrite(DIGITAL_OUT_PIN, LOW);
+    //in the case the BLE device disconnects before we reset, we reset here.
+    myservo.write(50);
+  }
+  
+  // Allow BLE Shield to send/receive data
+  ble_do_events();  
+}
